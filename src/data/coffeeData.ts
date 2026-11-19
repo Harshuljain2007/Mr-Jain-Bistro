@@ -1,3 +1,9 @@
+import heroCoffeeBarImg from '../assets/images/hero_coffee_bar_1795094461356.jpg';
+import bakeryPastryImg from '../assets/images/menu_bakery_pastry_1795094462927.jpg';
+import cortadoEspressoImg from '../assets/images/menu_cortado_espresso_1795094462205.jpg';
+import matchaIcedImg from '../assets/images/menu_matcha_iced_1795094462166.jpg';
+import pouroverCoffeeImg from '../assets/images/menu_pourover_coffee_1795094462385.jpg';
+
 export type MenuCategory = 'espresso' | 'filter' | 'tea' | 'bakery';
 
 export interface ShopSettings {
@@ -241,7 +247,7 @@ export const DEFAULT_SHOP_SETTINGS: ShopSettings = {
 };
 
 export const HERO_IMAGE = {
-  src: '/src/assets/images/hero_coffee_bar_1795094461356.jpg',
+  src: heroCoffeeBarImg,
   alt: 'Sunlit white oak espresso bar at Mr. Jain Bistro with barista preparing pour-over coffee',
 };
 
@@ -269,7 +275,7 @@ export const FEATURED_HIGHLIGHTS: FeaturedHighlight[] = [
     title: 'House Cortado',
     subtitle: 'Double ristretto · textured whole or oat milk',
     price: 4.5,
-    image: '/src/assets/images/menu_cortado_espresso_1795094462205.jpg',
+    image: cortadoEspressoImg,
     alt: 'Speckled ceramic cup with rosetta latte art cortado on pale stone table',
   },
   {
@@ -280,7 +286,7 @@ export const FEATURED_HIGHLIGHTS: FeaturedHighlight[] = [
     title: 'Single-Origin V60',
     subtitle: 'Ethiopia Guji · brewed to order in glass',
     price: 5.5,
-    image: '/src/assets/images/menu_pourover_coffee_1795094462385.jpg',
+    image: pouroverCoffeeImg,
     alt: 'Ceramic V60 dripper brewing amber single-origin filter coffee into a glass server',
   },
   {
@@ -291,7 +297,7 @@ export const FEATURED_HIGHLIGHTS: FeaturedHighlight[] = [
     title: 'Iced Uji Matcha',
     subtitle: 'First-harvest Kyoto green tea · oat milk',
     price: 5.75,
-    image: '/src/assets/images/menu_matcha_iced_1795094462166.jpg',
+    image: matchaIcedImg,
     alt: 'Iced ceremonial matcha latte layered with oat milk in a ribbed clear glass',
   },
   {
@@ -302,7 +308,7 @@ export const FEATURED_HIGHLIGHTS: FeaturedHighlight[] = [
     title: 'Sourdough Croissant & Knot',
     subtitle: 'Baked at 5:30 AM · cultured farm butter',
     price: 4.75,
-    image: '/src/assets/images/menu_bakery_pastry_1795094462927.jpg',
+    image: bakeryPastryImg,
     alt: 'Flaky laminated croissant and braided cardamom knot on a stoneware plate',
   },
 ];
