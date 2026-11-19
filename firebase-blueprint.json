@@ -1,0 +1,239 @@
+{
+  "entities": {
+    "ShopSettings": {
+      "title": "ShopSettings",
+      "description": "Public coffee shop configuration, hours, contact details, and featured spotlight.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "neighborhood": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "address": { "type": "string", "minLength": 1, "maxLength": 140 },
+        "cityStateZip": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "minLength": 5,
+          "maxLength": 120,
+          "pattern": "^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$"
+        },
+        "phone": { "type": "string", "minLength": 5, "maxLength": 40 },
+        "heroHeadline": { "type": "string", "minLength": 5, "maxLength": 160 },
+        "heroDescription": { "type": "string", "minLength": 10, "maxLength": 400 },
+        "hoursSummary": { "type": "string", "minLength": 3, "maxLength": 60 },
+        "hoursDays": { "type": "string", "minLength": 2, "maxLength": 60 },
+        "weekdayHours": { "type": "string", "minLength": 3, "maxLength": 60 },
+        "saturdayHours": { "type": "string", "minLength": 3, "maxLength": 60 },
+        "sundayHours": { "type": "string", "minLength": 3, "maxLength": 60 },
+        "roastSpotlight": { "type": "string", "minLength": 2, "maxLength": 100 },
+        "roastNotes": { "type": "string", "minLength": 2, "maxLength": 140 },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "name",
+        "neighborhood",
+        "address",
+        "cityStateZip",
+        "email",
+        "phone",
+        "heroHeadline",
+        "heroDescription",
+        "hoursSummary",
+        "hoursDays",
+        "weekdayHours",
+        "saturdayHours",
+        "sundayHours",
+        "roastSpotlight",
+        "roastNotes",
+        "updatedAt"
+      ]
+    },
+    "MenuItem": {
+      "title": "MenuItem",
+      "description": "Coffee bar beverage or morning bakery menu item.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "category": { "type": "string", "enum": ["espresso", "filter", "tea", "bakery"] },
+        "categoryLabel": { "type": "string", "minLength": 1, "maxLength": 40 },
+        "price": { "type": "number" },
+        "size": { "type": "string", "minLength": 1, "maxLength": 30 },
+        "description": { "type": "string", "minLength": 1, "maxLength": 240 },
+        "tastingNotes": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "originOrPrep": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "temperatures": { "type": "array" },
+        "dairyFreeAvailable": { "type": "boolean" },
+        "caffeineFree": { "type": "boolean" },
+        "isAvailable": { "type": "boolean" },
+        "sortOrder": { "type": "number" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "name",
+        "category",
+        "categoryLabel",
+        "price",
+        "size",
+        "description",
+        "tastingNotes",
+        "originOrPrep",
+        "temperatures",
+        "dairyFreeAvailable",
+        "caffeineFree",
+        "isAvailable",
+        "sortOrder",
+        "updatedAt"
+      ]
+    },
+    "DiningTable": {
+      "title": "DiningTable",
+      "description": "Cafe dining table configuration for QR code food ordering and table status tracking.",
+      "type": "object",
+      "properties": {
+        "tableNumber": { "type": "string", "minLength": 1, "maxLength": 20 },
+        "label": { "type": "string", "minLength": 1, "maxLength": 60 },
+        "seats": { "type": "number" },
+        "status": { "type": "string", "enum": ["available", "occupied", "reserved"] },
+        "isActive": { "type": "boolean" },
+        "sortOrder": { "type": "number" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "tableNumber",
+        "label",
+        "seats",
+        "status",
+        "isActive",
+        "sortOrder",
+        "updatedAt"
+      ]
+    },
+    "Order": {
+      "title": "Order",
+      "description": "Customer food and beverage order placed for a dining table or counter pickup.",
+      "type": "object",
+      "properties": {
+        "orderNumber": { "type": "string", "minLength": 3, "maxLength": 20 },
+        "tableId": { "type": "string", "minLength": 1, "maxLength": 40 },
+        "tableLabel": { "type": "string", "minLength": 1, "maxLength": 60 },
+        "customerName": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "customerUid": { "type": "string", "maxLength": 128 },
+        "items": { "type": "array" },
+        "notes": { "type": "string", "maxLength": 300 },
+        "totalAmount": { "type": "number" },
+        "status": {
+          "type": "string",
+          "enum": ["pending", "preparing", "ready", "served", "cancelled"]
+        },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "orderNumber",
+        "tableId",
+        "tableLabel",
+        "customerName",
+        "customerUid",
+        "items",
+        "notes",
+        "totalAmount",
+        "status",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "ContactMessage": {
+      "title": "ContactMessage",
+      "description": "Visitor contact form inquiry persisted for the coffee shop owner.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "minLength": 5,
+          "maxLength": 120,
+          "pattern": "^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$"
+        },
+        "topic": {
+          "type": "string",
+          "enum": [
+            "General Inquiry",
+            "Private Events & Catering",
+            "Wholesale Coffee Beans",
+            "Feedback"
+          ]
+        },
+        "message": { "type": "string", "minLength": 10, "maxLength": 2000 },
+        "status": { "type": "string", "enum": ["new", "read", "replied"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "email", "topic", "message", "status", "createdAt"]
+    },
+    "CustomerReview": {
+      "title": "CustomerReview",
+      "description": "Customer testimonial and rating displayed on the coffee shop homepage.",
+      "type": "object",
+      "properties": {
+        "authorName": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "authorRole": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "rating": { "type": "number" },
+        "quote": { "type": "string", "minLength": 10, "maxLength": 400 },
+        "favoriteItem": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "isApproved": { "type": "boolean" },
+        "sortOrder": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "authorName",
+        "authorRole",
+        "rating",
+        "quote",
+        "favoriteItem",
+        "isApproved",
+        "sortOrder",
+        "createdAt"
+      ]
+    },
+    "AdminUser": {
+      "title": "AdminUser",
+      "description": "Explicit admin allowlist entry keyed by Firebase Auth UID.",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string", "format": "email", "maxLength": 120 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["email", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/shopSettings/{settingId}": {
+      "schema": { "$ref": "#/entities/ShopSettings" },
+      "description": "Stores public coffee shop details (main doc)."
+    },
+    "/menuItems/{itemId}": {
+      "schema": { "$ref": "#/entities/MenuItem" },
+      "description": "Stores coffee bar and bakery menu items."
+    },
+    "/diningTables/{tableId}": {
+      "schema": { "$ref": "#/entities/DiningTable" },
+      "description": "Stores cafe dining tables for QR ordering and occupancy tracking."
+    },
+    "/orders/{orderId}": {
+      "schema": { "$ref": "#/entities/Order" },
+      "description": "Stores customer food and drink orders by table."
+    },
+    "/contactMessages/{messageId}": {
+      "schema": { "$ref": "#/entities/ContactMessage" },
+      "description": "Stores visitor contact form submissions (admin-readable only)."
+    },
+    "/reviews/{reviewId}": {
+      "schema": { "$ref": "#/entities/CustomerReview" },
+      "description": "Stores customer testimonials; approved reviews are publicly readable."
+    },
+    "/admins/{adminId}": {
+      "schema": { "$ref": "#/entities/AdminUser" },
+      "description": "Stores explicit admin UID records."
+    }
+  }
+}

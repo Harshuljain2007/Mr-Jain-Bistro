@@ -1,0 +1,6 @@
+{
+  "name": "Alder & Roast",
+  "description": "Neighborhood specialty coffee bar and small-batch roastery offering single-origin espresso, pour-overs, pastries, and direct inquiries.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
