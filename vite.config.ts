@@ -28,6 +28,42 @@ export default defineConfig(() => {
           }
         },
       },
+      // Strips the unbuilt-source GitHub Pages redirect from compiled HTML and
+      // mirrors the production bundle into /docs so GitHub Pages works whether
+      // configured via GitHub Actions, branch /docs, or branch / (root).
+      {
+        name: 'github-pages-static-sync',
+        apply: 'build',
+        transformIndexHtml(html: string): string {
+          return html.replace(
+            /\s*<!-- GH_PAGES_UNBUILT_REDIRECT_START -->[\s\S]*?<!-- GH_PAGES_UNBUILT_REDIRECT_END -->\s*/g,
+            '\n'
+          );
+        },
+        closeBundle(error?: Error): void {
+          if (error) {
+            return;
+          }
+          const distDir = path.resolve(__dirname, 'dist');
+          const docsDir = path.resolve(__dirname, 'docs');
+          const distIndex = path.join(distDir, 'index.html');
+          const distAssets = path.join(distDir, 'assets');
+          if (!fs.existsSync(distIndex)) {
+            return;
+          }
+          fs.rmSync(docsDir, {recursive: true, force: true});
+          fs.mkdirSync(docsDir, {recursive: true});
+          fs.copyFileSync(distIndex, path.join(docsDir, 'index.html'));
+          if (fs.existsSync(distAssets)) {
+            fs.cpSync(distAssets, path.join(docsDir, 'assets'), {
+              recursive: true,
+              force: true,
+              filter: (src) => !src.includes(`${path.sep}aistudio`),
+            });
+          }
+          fs.writeFileSync(path.join(docsDir, '.nojekyll'), '');
+        },
+      },
     ],
     resolve: {
       alias: {
