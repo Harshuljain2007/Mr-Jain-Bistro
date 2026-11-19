@@ -207,7 +207,7 @@ export function subscribeAllMenuItems(onData: (items: MenuItem[]) => void): () =
 export async function upsertMenuItem(item: MenuItem): Promise<void> {
   const id = sanitizeId(item.id);
   const path = `menuItems/${id}`;
-  const price = Math.max(0, Math.min(500, Number(item.price) || 0));
+  const price = Math.max(0, Math.min(50000, Number(item.price) || 0));
   const sortOrder = Math.max(0, Math.min(999, Math.round(Number(item.sortOrder) || 100)));
   const temperatures = item.temperatures.filter(
     (t): t is 'Hot' | 'Iced' => t === 'Hot' || t === 'Iced'
@@ -391,7 +391,7 @@ export async function createOrder(input: {
   const sanitizedItems: OrderItem[] = input.items.slice(0, 30).map((item) => ({
     id: sanitizeId(item.id),
     name: clampString(item.name, 80),
-    price: Math.max(0, Math.min(500, Number(item.price) || 0)),
+    price: Math.max(0, Math.min(50000, Number(item.price) || 0)),
     quantity: Math.max(1, Math.min(50, Math.round(Number(item.quantity) || 1))),
   }));
 
@@ -415,7 +415,7 @@ export async function createOrder(input: {
       customerUid: auth.currentUser?.uid ?? '',
       items: sanitizedItems,
       notes: clampString(input.notes, 300),
-      totalAmount: Math.min(5000, totalAmount),
+      totalAmount: Math.min(500000, totalAmount),
       status: 'pending',
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),

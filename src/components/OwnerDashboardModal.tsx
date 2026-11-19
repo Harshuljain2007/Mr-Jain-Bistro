@@ -6,6 +6,7 @@ import {
   Database,
   Download,
   ExternalLink,
+  FileSpreadsheet,
   LogOut,
   Plus,
   Printer,
@@ -16,6 +17,7 @@ import { QRCodeSVG } from 'qrcode.react';
 import {
   CATEGORY_LABELS,
   DEFAULT_SHOP_SETTINGS,
+  formatINR,
   type CustomerReview,
   type DiningTable,
   type MenuCategory,
@@ -25,7 +27,7 @@ import {
   type ShopSettings,
   type TableStatus,
 } from '../data/coffeeData';
-import { auth, googleProvider, isOwnerUser } from '../firebase';
+import { auth, formatAuthError, googleProvider, isOwnerUser } from '../firebase';
 import {
   deleteContactMessage,
   deleteCustomerReview,
@@ -69,12 +71,21 @@ type DashboardTab =
   | 'reviews'
   | 'messages';
 
+type SalesPeriod = 'all' | 'today' | '7d' | '30d';
+
+const SALES_PERIOD_LABELS: Record<SalesPeriod, string> = {
+  all: 'All Time',
+  today: 'Today',
+  '7d': 'Last 7 Days',
+  '30d': 'Last 30 Days',
+};
+
 const EMPTY_NEW_ITEM: MenuItem = {
   id: '',
   name: '',
   category: 'espresso',
   categoryLabel: CATEGORY_LABELS.espresso,
-  price: 4.5,
+  price: 220,
   size: '10 oz',
   description: '',
   tastingNotes: '',
@@ -94,6 +105,14 @@ const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
   cancelled: 'Cancelled',
 };
 
+function escapeCsvCell(value: string | number): string {
+  const str = String(value ?? '');
+  if (/[",\r\n]/.test(str)) {
+    return `"${str.replace(/"/g, '""')}"`;
+  }
+  return str;
+}
+
 export function OwnerDashboardModal({
   isOpen,
   onClose,
@@ -112,6 +131,8 @@ export function OwnerDashboardModal({
 
   // Orders & Tables
   const [orders, setOrders] = useState<OrderRecord[]>([]);
+  const [salesPeriod, setSalesPeriod] = useState<SalesPeriod>('all');
+  const [exportNotice, setExportNotice] = useState<string | null>(null);
   const [orderFilterTable, setOrderFilterTable] = useState<string>('all');
   const [orderFilterStatus, setOrderFilterStatus] = useState<'all' | 'active' | OrderStatus>('all');
   const [tables, setTables] = useState<DiningTable[]>([]);
@@ -161,18 +182,50 @@ export function OwnerDashboardModal({
     };
   }, [isOpen, authReady, isVerifiedAdmin]);
 
+  const periodOrders = useMemo(() => {
+    if (salesPeriod === 'all') return orders;
+    const now = new Date();
+    let cutoffMs = 0;
+    if (salesPeriod === 'today') {
+      cutoffMs = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    } else if (salesPeriod === '7d') {
+      cutoffMs = now.getTime() - 7 * 24 * 60 * 60 * 1000;
+    } else if (salesPeriod === '30d') {
+      cutoffMs = now.getTime() - 30 * 24 * 60 * 60 * 1000;
+    }
+    return orders.filter((o) => (o.createdAtMs ?? 0) >= cutoffMs);
+  }, [orders, salesPeriod]);
+
   const orderStats = useMemo(() => {
-    const pending = orders.filter((o) => o.status === 'pending').length;
-    const preparing = orders.filter((o) => o.status === 'preparing').length;
-    const ready = orders.filter((o) => o.status === 'ready').length;
-    const revenue = orders
-      .filter((o) => o.status !== 'cancelled')
+    const pending = periodOrders.filter((o) => o.status === 'pending').length;
+    const preparing = periodOrders.filter((o) => o.status === 'preparing').length;
+    const ready = periodOrders.filter((o) => o.status === 'ready').length;
+    const served = periodOrders.filter((o) => o.status === 'served').length;
+    const cancelled = periodOrders.filter((o) => o.status === 'cancelled').length;
+    const active = pending + preparing + ready;
+    const validOrders = periodOrders.filter((o) => o.status !== 'cancelled');
+    const totalSales = validOrders.reduce((sum, o) => sum + o.totalAmount, 0);
+    const servedSales = periodOrders
+      .filter((o) => o.status === 'served')
       .reduce((sum, o) => sum + o.totalAmount, 0);
-    return { pending, preparing, ready, total: orders.length, revenue };
-  }, [orders]);
+    const avgOrderValue = validOrders.length > 0 ? totalSales / validOrders.length : 0;
+    return {
+      pending,
+      preparing,
+      ready,
+      served,
+      cancelled,
+      active,
+      totalOrders: periodOrders.length,
+      validOrdersCount: validOrders.length,
+      totalSales,
+      servedSales,
+      avgOrderValue,
+    };
+  }, [periodOrders]);
 
   const filteredOrders = useMemo(() => {
-    return orders.filter((order) => {
+    return periodOrders.filter((order) => {
       if (orderFilterTable !== 'all' && order.tableId !== orderFilterTable) return false;
       if (orderFilterStatus === 'active') {
         return ['pending', 'preparing', 'ready'].includes(order.status);
@@ -180,7 +233,7 @@ export function OwnerDashboardModal({
       if (orderFilterStatus !== 'all' && order.status !== orderFilterStatus) return false;
       return true;
     });
-  }, [orders, orderFilterTable, orderFilterStatus]);
+  }, [periodOrders, orderFilterTable, orderFilterStatus]);
 
   if (!isOpen) return null;
 
@@ -195,9 +248,7 @@ export function OwnerDashboardModal({
     try {
       await signInWithPopup(auth, googleProvider);
     } catch (err) {
-      setAuthError(
-        err instanceof Error ? err.message : 'Unable to complete Google sign-in.'
-      );
+      setAuthError(formatAuthError(err));
     } finally {
       setIsAuthBusy(false);
     }
@@ -273,6 +324,90 @@ export function OwnerDashboardModal({
     URL.revokeObjectURL(url);
   };
 
+  const handleExportSalesCsv = (useFilteredOnly = false) => {
+    const records = useFilteredOnly ? filteredOrders : periodOrders;
+    const nonCancelled = records.filter((o) => o.status !== 'cancelled');
+    const totalSalesAmount = nonCancelled.reduce((sum, o) => sum + o.totalAmount, 0);
+    const servedCount = records.filter((o) => o.status === 'served').length;
+    const cancelledCount = records.filter((o) => o.status === 'cancelled').length;
+    const activeCount = records.length - servedCount - cancelledCount;
+
+    const header = [
+      'Order Number',
+      'Date & Time',
+      'Table',
+      'Customer Name',
+      'Items Ordered',
+      'Status',
+      'Notes',
+      'Amount (INR)',
+    ];
+
+    const rows = records.map((order) => {
+      const itemsSummary = order.items
+        .map((it) => `${it.quantity}x ${it.name} (${formatINR(it.price * it.quantity)})`)
+        .join('; ');
+      return [
+        order.orderNumber,
+        order.createdAtText,
+        order.tableLabel,
+        order.customerName,
+        itemsSummary,
+        ORDER_STATUS_LABELS[order.status],
+        order.notes || '',
+        order.totalAmount.toFixed(2),
+      ];
+    });
+
+    const summaryRows = [
+      [],
+      ['Sales Report Summary', '', '', '', '', '', '', ''],
+      ['Shop Name', currentSettings.name, '', '', '', '', '', ''],
+      ['Period', SALES_PERIOD_LABELS[salesPeriod], '', '', '', '', '', ''],
+      ['Scope', useFilteredOnly ? 'Filtered Orders' : 'All Orders in Period', '', '', '', '', '', ''],
+      ['Total Orders', records.length, '', '', '', '', '', ''],
+      ['Active Orders', activeCount, '', '', '', '', '', ''],
+      ['Served Orders', servedCount, '', '', '', '', '', ''],
+      ['Cancelled Orders', cancelledCount, '', '', '', '', '', ''],
+      ['Total Sales (INR, excl. cancelled)', totalSalesAmount.toFixed(2), '', '', '', '', '', ''],
+    ];
+
+    const csvLines = [header, ...rows, ...summaryRows]
+      .map((line) => line.map(escapeCsvCell).join(','))
+      .join('\r\n');
+
+    // UTF-8 BOM ensures Excel displays the ₹ symbol cleanly
+    const blob = new Blob([`\uFEFF${csvLines}`], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const dateStamp = new Date().toISOString().slice(0, 10);
+    const scopeSlug = useFilteredOnly ? 'filtered' : salesPeriod;
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `mr-jain-bistro-sales-${scopeSlug}-${dateStamp}.csv`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+
+    setExportNotice(
+      `Exported ${records.length} ${records.length === 1 ? 'order' : 'orders'} (${formatINR(totalSalesAmount)} total sales) to CSV.`
+    );
+  };
+
+  const handleResetMenuToInrDefaults = async () => {
+    setMenuNotice(null);
+    setMenuError(null);
+    setSeeding(true);
+    try {
+      await seedDatabaseDefaults(false, true, false, false);
+      setMenuNotice('Updated default menu items to Indian Rupee (₹) pricing in Firestore.');
+    } catch (err) {
+      setMenuError(
+        err instanceof Error ? err.message : 'Unable to update default ₹ prices.'
+      );
+    } finally {
+      setSeeding(false);
+    }
+  };
+
   const handleSaveSettings = async (e: FormEvent) => {
     e.preventDefault();
     setSettingsNotice(null);
@@ -331,7 +466,7 @@ export function OwnerDashboardModal({
 
   const handleUpdateItemPrice = async (item: MenuItem, nextPriceRaw: string) => {
     const parsed = Number(nextPriceRaw);
-    if (Number.isNaN(parsed) || parsed < 0 || parsed > 500) return;
+    if (Number.isNaN(parsed) || parsed < 0 || parsed > 50000) return;
     try {
       await upsertMenuItem({ ...item, price: parsed });
     } catch (err) {
@@ -473,35 +608,123 @@ export function OwnerDashboardModal({
                 ))}
               </div>
 
-              {/* TAB 1: LIVE ORDERS */}
+              {/* TAB 1: LIVE ORDERS & TOTAL SALES */}
               {activeTab === 'orders' && (
                 <div className="space-y-6">
-                  {/* 4-column summary strip */}
-                  <div className="grid grid-cols-2 divide-y divide-zinc-200 rounded-xl border border-zinc-200 bg-zinc-50 sm:grid-cols-4 sm:divide-x sm:divide-y-0">
-                    <div className="p-4">
-                      <p className="text-xs text-zinc-500">Pending</p>
-                      <p className="mt-1 text-2xl font-semibold text-zinc-900 tabular-nums">
-                        {orderStats.pending}
-                      </p>
+                  {/* Sales & Orders Overview + Export */}
+                  <div className="rounded-xl border border-zinc-200 bg-zinc-50 overflow-hidden">
+                    <div className="flex flex-col justify-between gap-3 border-b border-zinc-200 bg-white px-4 py-3.5 sm:flex-row sm:items-center">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-xs font-semibold tracking-wide text-zinc-700 uppercase">
+                          Sales Overview
+                        </span>
+                        <div
+                          role="tablist"
+                          aria-label="Sales summary period"
+                          className="flex flex-wrap items-center gap-1 rounded-lg bg-zinc-100 p-0.5"
+                        >
+                          {(Object.keys(SALES_PERIOD_LABELS) as SalesPeriod[]).map((period) => (
+                            <button
+                              key={period}
+                              type="button"
+                              role="tab"
+                              aria-selected={salesPeriod === period}
+                              onClick={() => {
+                                setSalesPeriod(period);
+                                setExportNotice(null);
+                              }}
+                              className={`rounded-md px-2.5 py-1 text-[11px] font-medium transition-colors cursor-pointer ${
+                                salesPeriod === period
+                                  ? 'bg-white text-zinc-900 shadow-xs'
+                                  : 'text-zinc-600 hover:text-zinc-900'
+                              }`}
+                            >
+                              {SALES_PERIOD_LABELS[period]}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-2">
+                        {(orderFilterTable !== 'all' || orderFilterStatus !== 'all') && (
+                          <button
+                            type="button"
+                            disabled={filteredOrders.length === 0}
+                            onClick={() => handleExportSalesCsv(true)}
+                            className="inline-flex min-h-[34px] items-center gap-1.5 rounded-lg border border-zinc-300 bg-white px-3 py-1 text-xs font-medium text-zinc-800 transition-colors hover:bg-zinc-50 disabled:opacity-50 cursor-pointer"
+                          >
+                            <Download className="h-3.5 w-3.5" aria-hidden="true" />
+                            Export Filtered ({filteredOrders.length})
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          disabled={periodOrders.length === 0}
+                          onClick={() => handleExportSalesCsv(false)}
+                          className="inline-flex min-h-[34px] items-center gap-1.5 rounded-lg bg-[#1C4A38] px-3.5 py-1.5 text-xs font-medium text-white transition-colors hover:bg-[#15392B] disabled:opacity-50 cursor-pointer"
+                        >
+                          <FileSpreadsheet className="h-3.5 w-3.5" aria-hidden="true" />
+                          Export Total Sales (CSV)
+                        </button>
+                      </div>
                     </div>
-                    <div className="p-4">
-                      <p className="text-xs text-zinc-500">Preparing</p>
-                      <p className="mt-1 text-2xl font-semibold text-zinc-900 tabular-nums">
-                        {orderStats.preparing}
-                      </p>
+
+                    {/* 4-column Total Sales & Total Orders KPI strip */}
+                    <div className="grid grid-cols-2 divide-y divide-zinc-200 sm:grid-cols-4 sm:divide-x sm:divide-y-0">
+                      <div className="p-4">
+                        <p className="text-xs font-medium text-zinc-500">Total Sales</p>
+                        <p className="mt-1 text-2xl font-semibold text-[#1C4A38] tabular-nums">
+                          {formatINR(orderStats.totalSales)}
+                        </p>
+                        <p className="mt-0.5 text-[11px] text-zinc-500 tabular-nums">
+                          Served: {formatINR(orderStats.servedSales)}
+                        </p>
+                      </div>
+                      <div className="p-4">
+                        <p className="text-xs font-medium text-zinc-500">Total Orders</p>
+                        <p className="mt-1 text-2xl font-semibold text-zinc-900 tabular-nums">
+                          {orderStats.totalOrders}
+                        </p>
+                        <p className="mt-0.5 text-[11px] text-zinc-500 tabular-nums">
+                          {orderStats.served} served · {orderStats.cancelled} cancelled
+                        </p>
+                      </div>
+                      <div className="p-4">
+                        <p className="text-xs font-medium text-zinc-500">Avg. Order Value</p>
+                        <p className="mt-1 text-2xl font-semibold text-zinc-900 tabular-nums">
+                          {formatINR(orderStats.avgOrderValue)}
+                        </p>
+                        <p className="mt-0.5 text-[11px] text-zinc-500 tabular-nums">
+                          {orderStats.validOrdersCount} non-cancelled
+                        </p>
+                      </div>
+                      <div className="p-4">
+                        <p className="text-xs font-medium text-zinc-500">Active Bar Queue</p>
+                        <p className="mt-1 text-2xl font-semibold text-zinc-900 tabular-nums">
+                          {orderStats.active}
+                        </p>
+                        <p className="mt-0.5 text-[11px] text-zinc-500 tabular-nums">
+                          {orderStats.pending} pend · {orderStats.preparing} prep · {orderStats.ready} ready
+                        </p>
+                      </div>
                     </div>
-                    <div className="p-4">
-                      <p className="text-xs text-zinc-500">Ready</p>
-                      <p className="mt-1 text-2xl font-semibold text-[#1C4A38] tabular-nums">
-                        {orderStats.ready}
-                      </p>
-                    </div>
-                    <div className="p-4">
-                      <p className="text-xs text-zinc-500">Order Revenue</p>
-                      <p className="mt-1 text-2xl font-semibold text-zinc-900 tabular-nums">
-                        ${orderStats.revenue.toFixed(2)}
-                      </p>
-                    </div>
+
+                    {exportNotice && (
+                      <div className="flex items-center justify-between gap-2 border-t border-zinc-200 bg-white px-4 py-2 text-xs font-medium text-[#1C4A38]">
+                        <span className="flex items-center gap-1.5">
+                          <CheckCircle2 className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                          <span>{exportNotice}</span>
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setExportNotice(null)}
+                          className="text-zinc-400 hover:text-zinc-700 cursor-pointer"
+                          aria-label="Dismiss export notice"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    )}
                   </div>
 
                   {/* Filters */}
@@ -543,7 +766,7 @@ export function OwnerDashboardModal({
                     </div>
 
                     <p className="text-xs text-zinc-500 tabular-nums">
-                      Showing {filteredOrders.length} of {orders.length} orders
+                      Showing {filteredOrders.length} of {periodOrders.length} orders
                     </p>
                   </div>
 
@@ -571,7 +794,7 @@ export function OwnerDashboardModal({
                               <p className="text-xs text-zinc-500">
                                 {order.customerName} · {order.createdAtText} ·{' '}
                                 <span className="font-semibold text-zinc-900 tabular-nums">
-                                  ${order.totalAmount.toFixed(2)}
+                                  {formatINR(order.totalAmount)}
                                 </span>
                               </p>
                             </div>
@@ -607,15 +830,15 @@ export function OwnerDashboardModal({
 
                           <ul className="mt-3 space-y-1 border-t border-zinc-100 pt-3 text-xs text-zinc-700">
                             {order.items.map((it) => (
-                              <li key={it.id} className="flex justify-between">
+                              <li key={it.id} className="flex justify-between gap-2">
                                 <span>
                                   <span className="font-semibold tabular-nums">
                                     {it.quantity}×
                                   </span>{' '}
                                   {it.name}
                                 </span>
-                                <span className="tabular-nums">
-                                  ${(it.price * it.quantity).toFixed(2)}
+                                <span className="shrink-0 tabular-nums">
+                                  {formatINR(it.price * it.quantity)}
                                 </span>
                               </li>
                             ))}
@@ -1018,9 +1241,19 @@ export function OwnerDashboardModal({
                     onSubmit={handleAddItem}
                     className="rounded-xl border border-zinc-200 bg-zinc-50 p-4 space-y-3"
                   >
-                    <p className="text-sm font-semibold text-zinc-900">
-                      Add New Menu Item
-                    </p>
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <p className="text-sm font-semibold text-zinc-900">
+                        Add New Menu Item
+                      </p>
+                      <button
+                        type="button"
+                        disabled={seeding}
+                        onClick={handleResetMenuToInrDefaults}
+                        className="inline-flex min-h-[32px] items-center gap-1.5 rounded-lg border border-zinc-300 bg-white px-3 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-50 disabled:opacity-60 cursor-pointer"
+                      >
+                        {seeding ? 'Updating...' : 'Apply Default ₹ Menu Prices'}
+                      </button>
+                    </div>
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
                       <input
                         type="text"
@@ -1050,14 +1283,15 @@ export function OwnerDashboardModal({
                       <div className="flex gap-2">
                         <input
                           type="number"
-                          step="0.25"
+                          step="1"
                           min="0"
-                          max="500"
+                          max="50000"
                           value={newItem.price}
                           onChange={(e) =>
                             setNewItem((p) => ({ ...p, price: Number(e.target.value) }))
                           }
-                          aria-label="Price"
+                          aria-label="Price in INR"
+                          placeholder="₹220"
                           className="h-10 w-24 rounded-lg border border-zinc-300 bg-white px-3 text-sm tabular-nums"
                         />
                         <input
@@ -1134,17 +1368,18 @@ export function OwnerDashboardModal({
                         </div>
                         <div className="flex items-center gap-2.5">
                           <label className="flex items-center gap-1 text-xs text-zinc-600">
-                            $
+                            ₹
                             <input
                               type="number"
-                              step="0.25"
+                              step="1"
                               min="0"
-                              max="500"
-                              defaultValue={item.price.toFixed(2)}
+                              max="50000"
+                              key={`${item.id}-${item.price}`}
+                              defaultValue={item.price}
                               onBlur={(e) =>
                                 handleUpdateItemPrice(item, e.target.value)
                               }
-                              aria-label={`Price for ${item.name}`}
+                              aria-label={`Price in rupees for ${item.name}`}
                               className="h-8 w-20 rounded border border-zinc-300 px-2 text-xs tabular-nums"
                             />
                           </label>

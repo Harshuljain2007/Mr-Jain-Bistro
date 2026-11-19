@@ -8,12 +8,12 @@ import {
   LayoutDashboard,
   LogIn,
   LogOut,
-  Receipt,
+  ReceiptIndianRupee,
   X,
   XCircle,
 } from 'lucide-react';
-import type { OrderRecord, OrderStatus } from '../data/coffeeData';
-import { auth, googleProvider, isOwnerUser } from '../firebase';
+import { formatINR, type OrderRecord, type OrderStatus } from '../data/coffeeData';
+import { auth, formatAuthError, googleProvider, isOwnerUser } from '../firebase';
 import { subscribeMyOrders } from '../services/coffeeDb';
 
 interface LoginPanelModalProps {
@@ -113,9 +113,7 @@ export function LoginPanelModal({
         onOpenOwnerDashboard();
       }
     } catch (err) {
-      setAuthError(
-        err instanceof Error ? err.message : 'Unable to complete Google sign-in.'
-      );
+      setAuthError(formatAuthError(err));
     } finally {
       setBusy(false);
     }
@@ -139,7 +137,7 @@ export function LoginPanelModal({
         <div className="flex items-center justify-between border-b border-zinc-200 px-6 py-4">
           <div className="flex items-center gap-2.5">
             {user ? (
-              <Receipt className="h-5 w-5 text-[#1C4A38]" aria-hidden="true" />
+              <ReceiptIndianRupee className="h-5 w-5 text-[#1C4A38]" aria-hidden="true" />
             ) : (
               <LogIn className="h-5 w-5 text-[#1C4A38]" aria-hidden="true" />
             )}
@@ -266,7 +264,7 @@ export function LoginPanelModal({
                 <div className="p-3.5">
                   <p className="text-xs text-zinc-500">Total Spent</p>
                   <p className="mt-0.5 text-lg font-semibold text-zinc-900 tabular-nums">
-                    ${orderSummary.totalSpent.toFixed(2)}
+                    {formatINR(orderSummary.totalSpent)}
                   </p>
                 </div>
               </div>
@@ -343,36 +341,35 @@ export function LoginPanelModal({
                           key={order.id}
                           className="rounded-xl border border-zinc-200 bg-white p-4 sm:p-5"
                         >
-                          <div className="flex flex-wrap items-start justify-between gap-2 border-b border-zinc-100 pb-3">
-                            <div>
-                              <div className="flex flex-wrap items-baseline gap-2">
-                                <span className="text-sm font-semibold text-zinc-900 tabular-nums">
-                                  {order.orderNumber}
-                                </span>
-                                <span className="text-xs font-medium text-zinc-600">
-                                  · {order.tableLabel}
-                                </span>
+                          <div className="border-b border-zinc-100 pb-3">
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                                  <span className="text-sm font-semibold text-zinc-900 tabular-nums">
+                                    {order.orderNumber}
+                                  </span>
+                                  <span className="text-xs font-medium text-zinc-600">
+                                    · {order.tableLabel}
+                                  </span>
+                                </div>
+                                <p className="mt-1 flex items-center gap-1.5 text-xs text-zinc-500">
+                                  <Clock className="h-3 w-3 shrink-0" aria-hidden="true" />
+                                  <span>{order.createdAtText}</span>
+                                </p>
                               </div>
-                              <p className="mt-0.5 flex items-center gap-1.5 text-xs text-zinc-500">
-                                <Clock className="h-3 w-3" aria-hidden="true" />
-                                <span>{order.createdAtText}</span>
+                              <p className="shrink-0 text-sm font-semibold text-zinc-900 tabular-nums sm:text-base">
+                                {formatINR(order.totalAmount)}
                               </p>
                             </div>
-
-                            <div className="text-right">
-                              <p className="text-sm font-semibold text-zinc-900 tabular-nums">
-                                ${order.totalAmount.toFixed(2)}
-                              </p>
-                              <p
-                                className={`text-xs font-medium ${
-                                  order.status === 'cancelled'
-                                    ? 'text-red-700'
-                                    : 'text-[#1C4A38]'
-                                }`}
-                              >
-                                {STATUS_DESCRIPTIONS[order.status]}
-                              </p>
-                            </div>
+                            <p
+                              className={`mt-2 text-xs font-medium ${
+                                order.status === 'cancelled'
+                                  ? 'text-red-700'
+                                  : 'text-[#1C4A38]'
+                              }`}
+                            >
+                              {STATUS_DESCRIPTIONS[order.status]}
+                            </p>
                           </div>
 
                           {/* 4-Step Live Status Tracker */}
@@ -383,28 +380,36 @@ export function LoginPanelModal({
                             </div>
                           ) : (
                             <div className="mt-4">
-                              <div className="grid grid-cols-4 gap-2">
+                              <div className="grid grid-cols-4 gap-1.5 sm:gap-2.5">
                                 {ORDER_STEPS.map((step, idx) => {
                                   const isDone = idx < activeStepIndex;
                                   const isCurrent = idx === activeStepIndex;
                                   const isFilled = isDone || isCurrent;
 
                                   return (
-                                    <div key={step.key} className="space-y-1.5">
+                                    <div key={step.key} className="min-w-0 space-y-1.5">
                                       <div
-                                        className={`h-1.5 w-full rounded-sm transition-colors ${
+                                        className={`h-1.5 w-full rounded-full transition-colors ${
                                           isFilled ? 'bg-[#1C4A38]' : 'bg-zinc-200'
                                         }`}
                                       />
-                                      <div className="flex items-center gap-1">
-                                        {isDone && (
-                                          <Check
-                                            className="h-3 w-3 shrink-0 text-[#1C4A38]"
-                                            aria-hidden="true"
-                                          />
-                                        )}
+                                      <div className="flex flex-col items-center gap-0.5 text-center sm:flex-row sm:items-center sm:justify-start sm:gap-1 sm:text-left">
                                         <span
-                                          className={`text-[11px] leading-tight ${
+                                          className={`inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full ${
+                                            isDone
+                                              ? 'bg-[#1C4A38] text-white'
+                                              : isCurrent
+                                                ? 'border-2 border-[#1C4A38] bg-white'
+                                                : 'border border-zinc-300 bg-white'
+                                          }`}
+                                          aria-hidden="true"
+                                        >
+                                          {isDone && (
+                                            <Check className="h-2.5 w-2.5" strokeWidth={3} />
+                                          )}
+                                        </span>
+                                        <span
+                                          className={`max-w-full truncate text-[10px] leading-tight sm:text-[11px] ${
                                             isCurrent
                                               ? 'font-semibold text-[#1C4A38]'
                                               : isDone
@@ -429,14 +434,14 @@ export function LoginPanelModal({
                                 key={item.id}
                                 className="flex items-center justify-between gap-2"
                               >
-                                <span>
+                                <span className="min-w-0">
                                   <span className="font-semibold text-zinc-900 tabular-nums">
                                     {item.quantity}×
                                   </span>{' '}
                                   {item.name}
                                 </span>
-                                <span className="font-medium text-zinc-900 tabular-nums">
-                                  ${(item.price * item.quantity).toFixed(2)}
+                                <span className="shrink-0 font-medium text-zinc-900 tabular-nums">
+                                  {formatINR(item.price * item.quantity)}
                                 </span>
                               </li>
                             ))}

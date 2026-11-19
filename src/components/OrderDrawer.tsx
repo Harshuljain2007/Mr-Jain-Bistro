@@ -8,7 +8,7 @@ import {
   Trash2,
   X,
 } from 'lucide-react';
-import type { DiningTable, OrderItem } from '../data/coffeeData';
+import { formatINR, type DiningTable, type OrderItem } from '../data/coffeeData';
 import { createOrder } from '../services/coffeeDb';
 
 interface OrderDrawerProps {
@@ -169,14 +169,14 @@ export function OrderDrawer({
                         {item.name}
                       </span>
                       <span className="font-medium text-zinc-900 tabular-nums">
-                        ${(item.price * item.quantity).toFixed(2)}
+                        {formatINR(item.price * item.quantity)}
                       </span>
                     </li>
                   ))}
                 </ul>
                 <div className="mt-3 flex items-center justify-between border-t border-zinc-200 pt-3 text-sm font-semibold text-zinc-900">
                   <span>Total</span>
-                  <span className="tabular-nums">${confirmation.totalAmount.toFixed(2)}</span>
+                  <span className="tabular-nums">{formatINR(confirmation.totalAmount)}</span>
                 </div>
               </div>
 
@@ -270,7 +270,7 @@ export function OrderDrawer({
                         {item.name}
                       </p>
                       <p className="text-xs text-zinc-500 tabular-nums">
-                        ${item.price.toFixed(2)} each
+                        {formatINR(item.price)} each
                       </p>
                     </div>
 
@@ -300,8 +300,8 @@ export function OrderDrawer({
                           <Plus className="h-3.5 w-3.5" />
                         </button>
                       </div>
-                      <span className="w-14 text-right text-sm font-semibold text-zinc-900 tabular-nums">
-                        ${(item.price * item.quantity).toFixed(2)}
+                      <span className="min-w-[4rem] text-right text-sm font-semibold text-zinc-900 tabular-nums">
+                        {formatINR(item.price * item.quantity)}
                       </span>
                     </div>
                   </div>
@@ -362,7 +362,7 @@ export function OrderDrawer({
                 Total ({tableLabel})
               </span>
               <span className="text-base font-semibold text-zinc-900 tabular-nums">
-                ${subtotal.toFixed(2)}
+                {formatINR(subtotal)}
               </span>
             </div>
             <button

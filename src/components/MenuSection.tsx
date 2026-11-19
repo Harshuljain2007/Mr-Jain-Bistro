@@ -3,6 +3,7 @@ import { ChevronDown, Minus, Plus, QrCode, Search, ShoppingBag, X } from 'lucide
 import {
   CATEGORY_TABS,
   FEATURED_HIGHLIGHTS,
+  formatINR,
   type DiningTable,
   type MenuCategory,
   type MenuItem,
@@ -172,7 +173,7 @@ export function MenuSection({
 
           <div className="flex shrink-0 items-center justify-between gap-3 sm:justify-end">
             <span className="text-sm font-semibold text-zinc-900 tabular-nums">
-              ${item.price.toFixed(2)}
+              {formatINR(item.price)}
             </span>
 
             {qtyInBag > 0 ? (
@@ -279,42 +280,46 @@ export function MenuSection({
 
         {/* 4-Card Featured Signature Grid */}
         <div className="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-          {FEATURED_HIGHLIGHTS.map((highlight) => (
-            <button
-              key={highlight.id}
-              type="button"
-              onClick={() => handleSelectHighlight(highlight.category, highlight.menuItemId)}
-              className="group flex flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white text-left transition-all duration-150 hover:-translate-y-0.5 hover:border-zinc-300 hover:shadow-sm cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1C4A38]"
-            >
-              <div className="aspect-[4/3] w-full overflow-hidden bg-zinc-100">
-                <ResilientImage
-                  src={highlight.image}
-                  alt={highlight.alt}
-                  fallbackTitle={highlight.title}
-                  className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
-                  containerClassName="h-full w-full"
-                />
-              </div>
-              <div className="flex flex-1 flex-col justify-between p-4">
-                <div>
-                  <p className="text-xs font-medium text-zinc-500">
-                    {highlight.categoryLabel}
-                  </p>
-                  <div className="mt-1 flex items-baseline justify-between gap-2">
-                    <h3 className="font-sans text-base font-semibold text-zinc-900">
-                      {highlight.title}
-                    </h3>
-                    <span className="text-sm font-semibold text-zinc-900 tabular-nums shrink-0">
-                      ${highlight.price.toFixed(2)}
-                    </span>
-                  </div>
-                  <p className="mt-1 text-xs leading-relaxed text-zinc-600">
-                    {highlight.subtitle}
-                  </p>
+          {FEATURED_HIGHLIGHTS.map((highlight) => {
+            const liveItem = menuItems.find((m) => m.id === highlight.menuItemId);
+            const displayPrice = liveItem ? liveItem.price : highlight.price;
+            return (
+              <button
+                key={highlight.id}
+                type="button"
+                onClick={() => handleSelectHighlight(highlight.category, highlight.menuItemId)}
+                className="group flex flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white text-left transition-all duration-150 hover:-translate-y-0.5 hover:border-zinc-300 hover:shadow-sm cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1C4A38]"
+              >
+                <div className="aspect-[4/3] w-full overflow-hidden bg-zinc-100">
+                  <ResilientImage
+                    src={highlight.image}
+                    alt={highlight.alt}
+                    fallbackTitle={highlight.title}
+                    className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
+                    containerClassName="h-full w-full"
+                  />
                 </div>
-              </div>
-            </button>
-          ))}
+                <div className="flex flex-1 flex-col justify-between p-4">
+                  <div>
+                    <p className="text-xs font-medium text-zinc-500">
+                      {highlight.categoryLabel}
+                    </p>
+                    <div className="mt-1 flex items-baseline justify-between gap-2">
+                      <h3 className="font-sans text-base font-semibold text-zinc-900">
+                        {highlight.title}
+                      </h3>
+                      <span className="text-sm font-semibold text-zinc-900 tabular-nums shrink-0">
+                        {formatINR(displayPrice)}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-xs leading-relaxed text-zinc-600">
+                      {highlight.subtitle}
+                    </p>
+                  </div>
+                </div>
+              </button>
+            );
+          })}
         </div>
 
         {/* Interactive Menu Controls */}
@@ -359,7 +364,7 @@ export function MenuSection({
               >
                 <ShoppingBag className="h-3.5 w-3.5" aria-hidden="true" />
                 {totalBagCount > 0
-                  ? `View Order (${totalBagCount}) · $${totalBagAmount.toFixed(2)}`
+                  ? `View Order (${totalBagCount}) · ${formatINR(totalBagAmount)}`
                   : 'Order Bag (0)'}
               </button>
             </div>

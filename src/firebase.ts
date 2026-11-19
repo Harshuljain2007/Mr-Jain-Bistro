@@ -17,6 +17,26 @@ export function isOwnerUser(email?: string | null, emailVerified?: boolean | nul
   return OWNER_EMAILS.includes(email.toLowerCase());
 }
 
+export function formatAuthError(error: unknown): string {
+  const code =
+    typeof error === 'object' && error !== null && 'code' in error
+      ? String((error as { code?: unknown }).code)
+      : '';
+  const message = error instanceof Error ? error.message : String(error ?? '');
+
+  if (code === 'auth/unauthorized-domain' || message.includes('auth/unauthorized-domain')) {
+    const host = typeof window !== 'undefined' ? window.location.hostname : 'this domain';
+    return `Google Sign-In is blocked on "${host}" because it is not listed under Firebase Authentication → Settings → Authorized domains yet.`;
+  }
+  if (code === 'auth/popup-blocked' || message.includes('auth/popup-blocked')) {
+    return 'Your browser blocked the Google Sign-In popup. Please allow popups for this site and try again.';
+  }
+  if (code === 'auth/popup-closed-by-user' || message.includes('auth/popup-closed-by-user')) {
+    return 'Sign-in window was closed before completing.';
+  }
+  return message || 'Unable to complete Google sign-in.';
+}
+
 export enum OperationType {
   CREATE = 'create',
   UPDATE = 'update',

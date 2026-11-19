@@ -78,7 +78,7 @@ service cloud.firestore {
       && data.name is string && data.name.size() >= 1 && data.name.size() <= 80
       && data.category in ['espresso', 'filter', 'tea', 'bakery']
       && data.categoryLabel is string && data.categoryLabel.size() >= 1 && data.categoryLabel.size() <= 40
-      && data.price is number && data.price >= 0 && data.price <= 500
+      && data.price is number && data.price >= 0 && data.price <= 50000
       && data.size is string && data.size.size() >= 1 && data.size.size() <= 30
       && data.description is string && data.description.size() >= 1 && data.description.size() <= 240
       && data.tastingNotes is string && data.tastingNotes.size() >= 1 && data.tastingNotes.size() <= 160
@@ -112,7 +112,7 @@ service cloud.firestore {
         && item.keys().hasOnly(['id', 'name', 'price', 'quantity'])
         && item.id is string && item.id.size() >= 1 && item.id.size() <= 128
         && item.name is string && item.name.size() >= 1 && item.name.size() <= 80
-        && item.price is number && item.price >= 0 && item.price <= 500
+        && item.price is number && item.price >= 0 && item.price <= 50000
         && item.quantity is number && item.quantity >= 1 && item.quantity <= 50;
     }
 
@@ -132,7 +132,7 @@ service cloud.firestore {
       && ((isSignedIn() && data.customerUid == request.auth.uid) || (!isSignedIn() && data.customerUid == ''))
       && data.items is list && data.items.size() >= 1 && data.items.size() <= 30 && isValidOrderItem(data.items[0])
       && data.notes is string && data.notes.size() <= 300
-      && data.totalAmount is number && data.totalAmount >= 0 && data.totalAmount <= 5000
+      && data.totalAmount is number && data.totalAmount >= 0 && data.totalAmount <= 500000
       && data.status == 'pending'
       && data.createdAt is timestamp && data.createdAt == request.time
       && data.updatedAt is timestamp && data.updatedAt == request.time;
